@@ -1,0 +1,28 @@
+version: '3'
+services:
+  mysql:
+    image: mysql:latest
+    container_name: go-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: snippetbox
+
+    ports:
+      - "3306:3306"
+    networks:
+      - your_network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: goapptest
+    ports:
+      - "9000:9000"
+    depends_on:
+      - mysql
+    networks:
+      - your_network
+
+networks:
+  your_network:
