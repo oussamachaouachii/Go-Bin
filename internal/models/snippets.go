@@ -6,10 +6,16 @@ import (
 	"time"
 )
 
+type SnippetModelInterface interface {
+	Insert(title string, content string, expires int) (int, error)
+	Get(id int) (*Snippet, error)
+	Latest() ([]*Snippet, error)
+}
+
 type Snippet struct {
 	ID      int
-	Title   string 
-	Content string 
+	Title   string
+	Content string
 	Created time.Time
 	Expires time.Time
 }
@@ -59,7 +65,9 @@ func (m *SnippetModel) Get(id int) (*Snippet, error) {
 func (m *SnippetModel) Latest() ([]*Snippet, error) {
 	query := `
 		SELECT ID, Title, Content, Created FROM snippets
-		WHERE expires > UTC_TIMESTAMP() LIMIT 10 ;
+		WHERE expires > UTC_TIMESTAMP() 
+		ORDER BY Created DESC
+		LIMIT 10 ;
 	`
 
 	rows, err := m.DB.Query(query)

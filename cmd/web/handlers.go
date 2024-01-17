@@ -20,7 +20,7 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 	}
 	data := app.newTemplateData(r)
 	data.Snippets = snippets
-	app.renderTemplate(w, *data, "home.tmpl.html")
+	app.renderTemplate(w, http.StatusOK, data, "home.tmpl.html")
 
 }
 
@@ -46,14 +46,14 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 
 	rendData := app.newTemplateData(r)
 	rendData.Snippet = snippet
-	app.renderTemplate(w, *rendData, "view.tmpl.html")
+
+	app.renderTemplate(w, http.StatusOK, rendData, "view.tmpl.html")
 
 }
 
 func (app *application) snippetCreatePOST(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
-		fmt.Println("ERROR HERE")
 		app.clientError(w, http.StatusBadRequest)
 		return
 	}
@@ -76,42 +76,143 @@ func (app *application) snippetCreatePOST(w http.ResponseWriter, r *http.Request
 	err = validate.Struct(snippetData)
 	if err != nil {
 		fmt.Fprint(w, err)
-	} else {
-		fmt.Fprint(w, err)
+		return
 	}
-
-	// fieldErrors := make(map[string]string)
-	// if strings.TrimSpace(title) == "" {
-	// 	fieldErrors["title"] = "This field cannot be blank or filled with spaces"
-	// } else if utf8.RuneCountInString(title) > 100 {
-	// 	fieldErrors["title"] = "This field cannot be more than 100 characterslong"
-	// }
-
-	// if strings.TrimSpace(content) == "" {
-	// 	fieldErrors["title"] = "This field cannot be blank or filled with spaces"
-	// }
-
-	// if expires != 1 && expires != 7 && expires != 365 {
-	// 	fieldErrors["expires"] = "This field must equal 1, 7 or 365"
-	// }
-
-	// if len(fieldErrors) > 1 {
-	// 	fmt.Fprint(w, fieldErrors)
-	// 	return
-	// }
 
 	id, err := app.snippets.Insert(title, content, expires)
 	if err != nil {
 		app.serverError(w, err)
 		return
 	}
+	app.sessionManager.Put(r.Context(), "flash", "Snippet successfully created!")
 
-	// Redirect the user to the relevant page for the snippet.
-	http.Redirect(w, r, fmt.Sprintf("/snippet/view/%d", id),
-		http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/snippet/view/%d", id), http.StatusFound)
 }
 
 func (app *application) snippetNew(w http.ResponseWriter, r *http.Request) {
 	rendData := app.newTemplateData(r)
-	app.renderTemplate(w, *rendData, "create.tmpl.html")
+	app.renderTemplate(w, http.StatusOK, rendData, "create.tmpl.html")
+}
+
+func (app *application) userSignup(w http.ResponseWriter, r *http.Request) {
+	rendData := app.newTemplateData(r)
+	app.renderTemplate(w, http.StatusOK, rendData, "signup.tmpl.html")
+}
+
+func (app *application) userSignupPost(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+
+	name := r.PostForm.Get("name")
+	email := r.PostForm.Get("email")
+	password := r.PostForm.Get("password")
+
+	if err != nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+
+	validate := validator.New()
+	userData := &dto.UserCreateDTO{
+		Name:     name,
+		Email:    email,
+		Password: password,
+	}
+	err = validate.Struct(userData)
+	if err != nil {
+		rendData := app.newTemplateData(r)
+		app.renderTemplate(w, http.StatusUnprocessableEntity, rendData, "signup.tmpl.html")
+		return
+	}
+
+	err = app.users.Insert(name, email, password)
+	if err != nil {
+		if errors.Is(err, models.ErrDuplicateEmail) {
+			app.sessionManager.Put(r.Context(), "flash", "There is an account associated with this email.")
+			rendData := app.newTemplateData(r)
+			app.renderTemplate(w, http.StatusUnprocessableEntity, rendData, "signup.tmpl.html")
+			fmt.Println("heeeereeee")
+			return
+		} else {
+			app.serverError(w, err)
+			return
+		}
+	}
+	app.sessionManager.Put(r.Context(), "flash", "User successfully created!")
+	http.Redirect(w, r, "/user/login", http.StatusSeeOther)
+}
+
+func (app *application) userLoginPost(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+
+	email := r.PostForm.Get("email")
+	password := r.PostForm.Get("password")
+
+	if err != nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+
+	validate := validator.New()
+	userData := &dto.UserLoginDTO{
+		Email:    email,
+		Password: password,
+	}
+
+	err = validate.Struct(userData)
+	if err != nil {
+		fmt.Fprint(w, err)
+		return
+	}
+
+	id, username, err := app.users.Authenticate(email, password)
+	if err != nil {
+		if errors.Is(err, models.ErrInvalidCredentials) {
+			app.sessionManager.Put(r.Context(), "flash", "Invalid Credentials.")
+			rendData := app.newTemplateData(r)
+			app.renderTemplate(w, http.StatusOK, rendData, "login.tmpl.html")
+		} else {
+			app.serverError(w, err)
+		}
+		return
+	}
+
+	err = app.sessionManager.RenewToken(r.Context())
+	if err != nil {
+		app.serverError(w, err)
+		return
+	}
+	app.sessionManager.Put(r.Context(), "authenticatedUserID", id)
+	app.sessionManager.Put(r.Context(), "username", username)
+	app.sessionManager.Put(r.Context(), "flash", "Logged in successfully, WELCOME :)")
+
+	// Redirect the user to the create snippet page.
+	http.Redirect(w, r, "/snippet/new", http.StatusSeeOther)
+
+}
+func (app *application) userLogin(w http.ResponseWriter, r *http.Request) {
+	rendData := app.newTemplateData(r)
+	app.renderTemplate(w, http.StatusOK, rendData, "login.tmpl.html")
+}
+
+func (app *application) userLogoutPost(w http.ResponseWriter, r *http.Request) {
+	err := app.sessionManager.RenewToken(r.Context())
+	if err != nil {
+		app.serverError(w, err)
+		return
+	}
+	app.sessionManager.Remove(r.Context(), "authenticatedUserID")
+	app.sessionManager.Put(r.Context(), "flash", "You've been logged out successfully!")
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func (app *application) ping(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("OK"))
 }
