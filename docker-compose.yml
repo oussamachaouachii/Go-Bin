@@ -10,9 +10,9 @@ services:
     ports:
       - "3306:3306"
     networks:
-      - your_network
+      - my_network
 
-  backend:
+  app:
     build:
       context: .
       dockerfile: Dockerfile
@@ -22,7 +22,11 @@ services:
     depends_on:
       - mysql
     networks:
-      - your_network
+      - my_network
+    environment:
+        user: "root"
+        password: "root"
+        app_port: 9000
 
 networks:
-  your_network:
+  my_network:

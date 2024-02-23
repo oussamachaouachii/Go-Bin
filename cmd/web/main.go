@@ -28,9 +28,9 @@ func main() {
 	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
 	errorLog := log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
 
-	user := "root"
-	password := "root"
-	host := "localhost"
+	user := os.Getenv("user")
+	password := os.Getenv("password")
+	host := "mysql"
 	port := 3306
 	dbName := "snippetbox"
 
@@ -62,7 +62,7 @@ func main() {
 	}
 
 	srv := &http.Server{
-		Addr:         ":9000",
+		Addr:         ":" + os.Getenv("app_port"),
 		ErrorLog:     errorLog,
 		Handler:      app.routes(),
 		IdleTimeout:  time.Minute,
@@ -70,8 +70,9 @@ func main() {
 		WriteTimeout: 10 * time.Second,
 	}
 
-	infoLog.Println("Starting server on https://localhost:9000")
-	err = srv.ListenAndServeTLS("./tls/cert.pem", "./tls/key.pem")
+	infoLog.Println("Starting server on http://localhost:" + os.Getenv("app_port"))
+	srv.ListenAndServe()
+	// err = srv.ListenAndServeTLS("./tls/cert.pem", "./tls/key.pem")
 	errorLog.Fatal(err)
 }
 
