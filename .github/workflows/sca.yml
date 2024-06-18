@@ -1,21 +1,16 @@
-name: Scan Main Branch
-
-# Controls when the workflow will run
-on:
+name: Experiment
+on: 
   schedule:
-    # Runs at 1:00 AM UTC every day
-    - cron: '25 * * * *'
-  push:
-    branches:
-      - main
+  - cron: '*/5 * * * *'
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  scan:
+  job1:
+    name: Debug
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
+    - name: Git checkout
       uses: actions/checkout@v2
-      with:
-        ref: main  # Ensure we're checking out the main branch
+      with: { ref: debug }
+    - name: List files
+      run: ls
