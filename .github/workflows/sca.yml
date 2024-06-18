@@ -1,0 +1,14 @@
+name: sca
+
+on:
+  schedule:
+    - cron: "*/6 * * * *"
+  push:
+    branches: [Feat/add-owasp-dependency-check]
+
+jobs:
+  frontend-integration:
+    runs-on: ubuntu-latest
+    name: Frontend Integration
+    steps:
+      - uses: actions/checkout@v3
