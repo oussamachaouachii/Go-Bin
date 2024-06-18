@@ -1,14 +1,21 @@
-name: sca
+name: Scan Main Branch
 
+# Controls when the workflow will run
 on:
   schedule:
-    - cron: "7 * * * *"
+    # Runs at 1:00 AM UTC every day
+    - cron: '25 * * * *'
   push:
-    branches: [Feat/add-owasp-dependency-check]
+    branches:
+      - main
 
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  frontend-integration:
+  scan:
     runs-on: ubuntu-latest
-    name: Frontend Integration
+
     steps:
-      - uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      with:
+        ref: main  # Ensure we're checking out the main branch
